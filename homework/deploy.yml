@@ -1,0 +1,40 @@
+---
+- name: Deploy Python Application
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Install MySQL Server
+      apt:
+        name: mysql-server
+        state: present
+
+    - name: Install Python3, Pip, and Libmysqlclient-dev
+      apt:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - python3
+        - python3-pip
+        - libmysqlclient-dev
+        - pkg-config  # Add pkg-config as a build dependency
+
+    - name: Install Python Dependencies
+      pip:
+        requirements: /home/ubuntu/homework/requirements.txt
+
+    - name: Create .env Configuration File
+      template:
+        src: /home/ubuntu/homework/countapp/templates/env.j2
+        dest: /home/ubuntu/homework/.env
+      notify:
+        - Restart Application
+
+    - name: Execute init_database.py Script
+      command: "python3 /home/ubuntu/homework/countapp/init_database.py"
+      notify:
+        - Restart Application
+
+  handlers:
+    - name: Restart Application
+      command: "gunicorn --bind 0.0.0.0:6000 --chdir /home/ubuntu/homework/countapp countapp.wsgi:app --reload --timeout=900"
